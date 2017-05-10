@@ -1,0 +1,27 @@
+build_final_glibc
+mkdir build-glibc2
+pushd build-glibc2
+~/toolchain/build/build-glibc2 ~/toolchain/build
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... aarch64-unknown-linux-gnu
+checking for aarch64-unknown-linux-gnu-gcc... aarch64-unknown-linux-gnu-gcc
+checking for suffix of object files... o
+checking whether we are using the GNU C compiler... yes
+checking whether aarch64-unknown-linux-gnu-gcc accepts -g... yes
+checking for gcc... gcc
+checking for aarch64-unknown-linux-gnu-readelf... aarch64-unknown-linux-gnu-readelf
+checking for aarch64-unknown-linux-gnu-g++... aarch64-unknown-linux-gnu-g++
+checking whether we are using the GNU C++ compiler... yes
+checking whether aarch64-unknown-linux-gnu-g++ accepts -g... yes
+checking whether aarch64-unknown-linux-gnu-g++ can link programs... no
+checking for sysdeps preconfigure fragments... aarch64 alpha arm hppa i386 m68k microblaze mips nacl nios2 powerpc s390 sh sparc tile x86_64 
+checking for -fstack-protector... no
+checking for -fstack-protector-strong... no
+checking for -fstack-protector-all... no
+checking for assembler and linker STT_GNU_IFUNC support... yes
+checking for gcc attribute ifunc support... no
+checking sysdep dirs... sysdeps/unix/sysv/linux/aarch64 sysdeps/aarch64/nptl sysdeps/unix/sysv/linux/generic sysdeps/unix/sysv/linux/wordsize-64 sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix sysdeps/posix sysdeps/aarch64/fpu sysdeps/aarch64 sysdeps/wordsize-64 sysdeps/ieee754/ldbl-128 sysdeps/ieee754/dbl-64/wordsize-64 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/aarch64/soft-fp sysdeps/ieee754 sysdeps/generic
+configure: error: add-on nptl has no configure fragment or sysdeps tree
+make -j2
+make: *** No targets specified and no makefile found.  Stop.
+make -j2 failed
