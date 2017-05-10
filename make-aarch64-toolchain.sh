@@ -2,6 +2,9 @@
 
 set -e
 
+UDIR="v4.x"
+UVER="4.4.15"
+GLIBC_VER="2.25"
 BUILD_TOP=`pwd`
 NCPUS=`getconf _NPROCESSORS_ONLN`
 
@@ -19,8 +22,8 @@ get_src() {
 	# Get all the component sources
 	edo wget http://ftpmirror.gnu.org/binutils/binutils-2.24.tar.gz
 	edo wget http://ftpmirror.gnu.org/gcc/gcc-4.8.5/gcc-4.8.5.tar.gz
-	edo wget http://ftpmirror.gnu.org/glibc/glibc-2.17.tar.xz
-	edo wget --no-check-certificate https://www.kernel.org/pub/linux/kernel/v3.x/linux-3.7.10.tar.xz
+	edo wget http://ftpmirror.gnu.org/glibc/glibc-$GLIBC_VER.tar.xz
+	edo wget --no-check-certificate https://www.kernel.org/pub/linux/kernel/$UDIR/linux-$UVER.tar.xz
 	edo wget http://ftpmirror.gnu.org/mpfr/mpfr-3.1.1.tar.xz
 	edo wget http://ftpmirror.gnu.org/gmp/gmp-5.0.5.tar.xz
 	edo wget http://ftpmirror.gnu.org/mpc/mpc-1.0.1.tar.gz
@@ -31,7 +34,7 @@ apply_patches() {
 	# Apply patches and set up support libraries
 	edo pushd binutils-2.24
 	for f in $BUILD_TOP/patches/binutils-2.24/*; do edo patch -p1 < $f; done
-	edo popd 
+	edo popd
 
 	edo pushd gcc-4.8.5
 	edo ln -s $BUILD_TOP/gmp-5.0.5 gmp
@@ -47,11 +50,20 @@ set_env() {
 	TRIPLET=aarch64-unknown-linux-gnu
 	SYSROOT=$INSTALL_PATH/$TRIPLET/sysroot
 	PATH=$INSTALL_PATH/bin:$PATH
+
+	echo "export BUILD_TOP=\"$BUILD_TOP\"" > env.sh
+	echo "export UDIR=\"$UDIR\"" >> env.sh
+	echo "export UVER=\"$UVER\"" >> env.sh
+	echo "export NCPUS=\"$NCPUS\"" >> env.sh
+	echo "export INSTALL_PATH=\"$INSTALL_PATH\"" >> env.sh
+	echo "export TRIPLET=\"$TRIPLET\"" >> env.sh
+	echo "export SYSROOT=\"$SYSROOT\"" >> env.sh
+	echo "export PATH=\"$PATH\"" >> env.sh
 }
 
 build_binutils() {
 	# Build binutils
-	edo mkdir build-binutils
+	edo mkdir -p build-binutils
 	edo pushd build-binutils/
 	edo $BUILD_TOP/binutils-2.24/configure \
 		--prefix=$INSTALL_PATH \
@@ -65,20 +77,25 @@ build_binutils() {
 
 install_linux_headers() {
 	# Set up Linux headers
-	edo pushd linux-3.7.10
+	edo pushd linux-$UVER
 	edo make ARCH=arm64 INSTALL_HDR_PATH=$SYSROOT/usr headers_install
 	edo popd
 }
 
 build_gcc_stage1() {
+	# Apply patch to gcc 4.8.5
+	edo pushd $BUILD_TOP/gcc-4.8.5
+	(edo patch -p1 -r - <  $BUILD_TOP/patches/gcc-4.8.5/132-build_gcc-5_with_gcc-6.patch) || true
+	edo popd
+
 	# Build 1st stage gcc
-	edo mkdir build-gcc1
+	edo mkdir -p build-gcc1
 	edo pushd build-gcc1
 	$BUILD_TOP/gcc-4.8.5/configure \
 		LDFLAGS=-static \
 		--prefix=$INSTALL_PATH \
 		--target=$TRIPLET \
-		--enable-languages=c,c++,fortran \
+		--enable-languages=c,c++,fortran,go \
 		--enable-theads=posix \
 		--enable-shared \
 		--disable-libsanitizer \
@@ -93,19 +110,20 @@ build_gcc_stage1() {
 
 build_glibc_stage1() {
 	# Build 1st stage glibc
-	edo mkdir build-glibc1
+	edo mkdir -p build-glibc1
 	edo pushd build-glibc1
 	edo mkdir -p $SYSROOT/usr/lib
-	$BUILD_TOP/glibc-2.17/configure \
+	$BUILD_TOP/glibc-$GLIBC_VER/configure \
 		--prefix=$SYSROOT/usr \
 		--with-headers=$SYSROOT/usr/include \
 		--build=$MACHTYPE \
 		--host=$TRIPLET \
 		--target=$TRIPLET \
-		--enable-add-ons=nptl,$BUILD_TOP/glibc-2.17/ports \
+		--enable-add-ons=nptl,$BUILD_TOP/glibc-$GLIBC_VER/ports \
 		--with-tls \
 		--disable-nscd \
 		--disable-stackguard-randomization \
+		--enable-add-ons \
 		CC=$TRIPLET-gcc \
 		libc_cv_forced_unwind=yes
 	edo make install-bootstrap-headers=yes install-headers
@@ -141,13 +159,13 @@ build_final_glibc() {
 	# Finish glibc
 	edo mkdir build-glibc2
 	edo pushd build-glibc2
-	$BUILD_TOP/glibc-2.17/configure \
+	$BUILD_TOP/glibc-$GLIBC_VER/configure \
 		--prefix=/usr \
 		--with-headers=$SYSROOT/usr/include \
 		--build=$MACHTYPE \
 		--host=$TRIPLET \
 		--target=$TRIPLET \
-		--enable-add-ons=nptl,$BUILD_TOP/glibc-2.17/ports \
+		--enable-add-ons=nptl,$BUILD_TOP/glibc-$GLIBC_VER/ports \
 		--with-tls \
 		--disable-nscd \
 		--disable-stackguard-randomization \
