@@ -1,0 +1,113 @@
+From 4a4a66b364ecf69596f620ce118e2a36d71713ab Mon Sep 17 00:00:00 2001
+From: Robert Morell <rmorell@nvidia.com>
+Date: Thu, 11 Sep 2014 18:01:30 -0700
+Subject: [PATCH 3/3] ld: Add test for aarch64-elf32 localized GOT relocations
+
+This is just like local-got-relocs, but for ILP32.
+---
+ ld/testsuite/ld-aarch64/aarch64-elf.exp          |  1 +
+ ld/testsuite/ld-aarch64/aarch64-elf32.ld         | 19 +++++++++++++++
+ ld/testsuite/ld-aarch64/local-got-relocs-elf32.d | 30 ++++++++++++++++++++++++
+ ld/testsuite/ld-aarch64/local-got-relocs-elf32.s | 15 ++++++++++++
+ 4 files changed, 65 insertions(+)
+ create mode 100644 ld/testsuite/ld-aarch64/aarch64-elf32.ld
+ create mode 100644 ld/testsuite/ld-aarch64/local-got-relocs-elf32.d
+ create mode 100644 ld/testsuite/ld-aarch64/local-got-relocs-elf32.s
+
+diff --git a/ld/testsuite/ld-aarch64/aarch64-elf.exp b/ld/testsuite/ld-aarch64/aarch64-elf.exp
+index 7e4bf5cca009..89caec670d4a 100644
+--- a/ld/testsuite/ld-aarch64/aarch64-elf.exp
++++ b/ld/testsuite/ld-aarch64/aarch64-elf.exp
+@@ -115,6 +115,7 @@ run_dump_test "gc-plt-relocs"
+ run_dump_test "gc-relocs-257-dyn"
+ run_dump_test "gc-relocs-257"
+ run_dump_test "local-got-relocs"
++run_dump_test "local-got-relocs-elf32"
+ 
+ # ifunc tests
+ run_dump_test "ifunc-1"
+diff --git a/ld/testsuite/ld-aarch64/aarch64-elf32.ld b/ld/testsuite/ld-aarch64/aarch64-elf32.ld
+new file mode 100644
+index 000000000000..ce314c9440b9
+--- /dev/null
++++ b/ld/testsuite/ld-aarch64/aarch64-elf32.ld
+@@ -0,0 +1,19 @@
++/* Script for ld testsuite */
++OUTPUT_ARCH(aarch64:ilp32)
++ENTRY(_start)
++SECTIONS
++{
++  /* Read-only sections, merged into text segment: */
++  PROVIDE (__executable_start = 0x8000); . = 0x8000;
++  .text           :
++  {
++    *(.before)
++    *(.text)
++    *(.after)
++  } =0
++  . = 0x9000;
++  .got            : { *(.got) *(.got.plt)}
++  . = 0x12340000;
++  .far : { *(.far) }
++  .ARM.attributes 0 : { *(.ARM.atttributes) }
++}
+diff --git a/ld/testsuite/ld-aarch64/local-got-relocs-elf32.d b/ld/testsuite/ld-aarch64/local-got-relocs-elf32.d
+new file mode 100644
+index 000000000000..cda08665fef9
+--- /dev/null
++++ b/ld/testsuite/ld-aarch64/local-got-relocs-elf32.d
+@@ -0,0 +1,30 @@
++#as: -mabi=ilp32
++#ld: -T aarch64-elf32.ld -maarch64elf32
++#objdump: -t -d -r
++
++# Test PC-relative GOT relocs against local symbol x.
++# This occurs, for example, if the compiler produces a GOT reloc to a global
++# symbol, and then the global symbol in the intermediate .o is localized with
++# objcopy and the result is linked into a final executable with ld (although
++# this test skips the objcopy step and makes the symbol local to begin with).
++# The GOT reloc should be resolved correctly to a static PC-relative lookup.
++# (This involves removing one level of indirection by changing a load to an
++# add).
++
++.*:     file format elf32-(little|big)aarch64
++
++SYMBOL TABLE:
++0+8000 l    d  \.text	0+ \.text
++0+9000 l    d  \.got	0+ \.got
++0+9010 l    d  \.data	0+ \.data
++0+0000 l    df \*ABS\*	0+ .*
++0+9010 l     O \.data	0+4 x
++0+0000 l    df \*ABS\*	0+
++0+9000 l     O \.got	0+ _GLOBAL_OFFSET_TABLE_
++0+8000 g     F \.text	0+ _start
++
++Disassembly of section \.text:
++
++0+8000 \<_start>:
++    8000:	b0000000 	adrp	x0, 9000 \<_GLOBAL_OFFSET_TABLE_>
++    8004:	11004000 	add	w0, w0, #0x10
+diff --git a/ld/testsuite/ld-aarch64/local-got-relocs-elf32.s b/ld/testsuite/ld-aarch64/local-got-relocs-elf32.s
+new file mode 100644
+index 000000000000..82cb1bd894c8
+--- /dev/null
++++ b/ld/testsuite/ld-aarch64/local-got-relocs-elf32.s
+@@ -0,0 +1,15 @@
++# Begin with a function that uses a PC-relative GOT lookup of symbol x.
++	.text
++	.global	_start
++	.type	_start, %function
++_start:
++	adrp	x0, :got:x
++	ldr	w0, [x0, #:got_lo12:x]
++
++# Define symbol x as a local symbol.
++	.data
++	.align	2
++	.type	x, %object
++	.size	x, 4
++x:
++	.word	1
+-- 
+1.8.5.5
+

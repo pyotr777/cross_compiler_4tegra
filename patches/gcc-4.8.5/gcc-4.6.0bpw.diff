@@ -1,0 +1,26 @@
+diff -urN gcc-4.6.0.ori/gcc/common.opt gcc-4.6.0/gcc/common.opt
+--- gcc-4.6.0.ori/gcc/common.opt	2011-03-05 16:38:13.000000000 -0800
++++ gcc-4.6.0/gcc/common.opt	2012-03-09 17:23:12.000000000 -0800
+@@ -662,6 +662,10 @@
+ Common Var(warn_coverage_mismatch) Init(1) Warning
+ Warn in case profiles in -fprofile-use do not match
+ 
++Wgcc-bug
++Common Var(warn_probable_gcc_bug) Init(-1) Warning
++If it warns, then it's most likely a gcc bug!
++
+ Xassembler
+ Driver Separate
+ 
+diff -urN gcc-4.6.0.ori/gcc/cp/decl2.c gcc-4.6.0/gcc/cp/decl2.c
+--- gcc-4.6.0.ori/gcc/cp/decl2.c	2011-03-01 14:44:26.000000000 -0800
++++ gcc-4.6.0/gcc/cp/decl2.c	2012-03-09 17:22:39.000000000 -0800
+@@ -2243,7 +2243,7 @@
+ 	if (subvis == VISIBILITY_ANON)
+ 	  {
+ 	    if (!in_main_input_context ())
+-	      warning (0, "\
++	      warning (OPT_Wgcc_bug, "\
+ %qT has a field %qD whose type uses the anonymous namespace",
+ 		       type, t);
+ 	  }

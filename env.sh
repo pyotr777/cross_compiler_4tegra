@@ -1,0 +1,8 @@
+export BUILD_TOP="/home/peter/toolchain/build"
+export UDIR="v4.x"
+export UVER="4.4.15"
+export NCPUS="2"
+export INSTALL_PATH="/home/peter/toolchain/build/install"
+export TRIPLET="aarch64-unknown-linux-gnu"
+export SYSROOT="/home/peter/toolchain/build/install/aarch64-unknown-linux-gnu/sysroot"
+export PATH="/home/peter/toolchain/build/install/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin"

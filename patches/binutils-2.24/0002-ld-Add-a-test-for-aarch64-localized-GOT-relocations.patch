@@ -1,0 +1,87 @@
+From 4f2896641a4d8fc663bff27be508c9df981b2df0 Mon Sep 17 00:00:00 2001
+From: Robert Morell <rmorell@nvidia.com>
+Date: Thu, 11 Sep 2014 17:58:23 -0700
+Subject: [PATCH 2/3] ld: Add a test for aarch64 localized GOT relocations
+
+This change adds an assembly file which contains already-localized
+PC-relative GOT relocations, and a test which assembles it, links it,
+dumps it, and verifies that the relocation was resolved correctly.
+---
+ ld/testsuite/ld-aarch64/aarch64-elf.exp    |  1 +
+ ld/testsuite/ld-aarch64/local-got-relocs.d | 29 +++++++++++++++++++++++++++++
+ ld/testsuite/ld-aarch64/local-got-relocs.s | 15 +++++++++++++++
+ 3 files changed, 45 insertions(+)
+ create mode 100644 ld/testsuite/ld-aarch64/local-got-relocs.d
+ create mode 100644 ld/testsuite/ld-aarch64/local-got-relocs.s
+
+diff --git a/ld/testsuite/ld-aarch64/aarch64-elf.exp b/ld/testsuite/ld-aarch64/aarch64-elf.exp
+index 5c150dde92c6..7e4bf5cca009 100644
+--- a/ld/testsuite/ld-aarch64/aarch64-elf.exp
++++ b/ld/testsuite/ld-aarch64/aarch64-elf.exp
+@@ -114,6 +114,7 @@ run_dump_test "gc-tls-relocs"
+ run_dump_test "gc-plt-relocs"
+ run_dump_test "gc-relocs-257-dyn"
+ run_dump_test "gc-relocs-257"
++run_dump_test "local-got-relocs"
+ 
+ # ifunc tests
+ run_dump_test "ifunc-1"
+diff --git a/ld/testsuite/ld-aarch64/local-got-relocs.d b/ld/testsuite/ld-aarch64/local-got-relocs.d
+new file mode 100644
+index 000000000000..cbaf75736fb7
+--- /dev/null
++++ b/ld/testsuite/ld-aarch64/local-got-relocs.d
+@@ -0,0 +1,29 @@
++#ld: -T aarch64.ld
++#objdump: -t -d -r
++
++# Test PC-relative GOT relocs against local symbol x.
++# This occurs, for example, if the compiler produces a GOT reloc to a global
++# symbol, and then the global symbol in the intermediate .o is localized with
++# objcopy and the result is linked into a final executable with ld (although
++# this test skips the objcopy step and makes the symbol local to begin with).
++# The GOT reloc should be resolved correctly to a static PC-relative lookup.
++# (This involves removing one level of indirection by changing a load to an
++# add).
++
++.*:     file format elf64-(little|big)aarch64
++
++SYMBOL TABLE:
++0+8000 l    d  \.text	0+ \.text
++0+9000 l    d  \.got	0+ \.got
++0+9020 l    d  \.data	0+ \.data
++0+0000 l    df \*ABS\*	0+ .*
++0+9020 l     O \.data	0+4 x
++0+0000 l    df \*ABS\*	0+
++0+9000 l     O \.got	0+ _GLOBAL_OFFSET_TABLE_
++0+8000 g     F \.text	0+ _start
++
++Disassembly of section \.text:
++
++0+8000 \<_start>:
++    8000:	b0000000 	adrp	x0, 9000 \<_GLOBAL_OFFSET_TABLE_>
++    8004:	91008000 	add	x0, x0, #0x20
+diff --git a/ld/testsuite/ld-aarch64/local-got-relocs.s b/ld/testsuite/ld-aarch64/local-got-relocs.s
+new file mode 100644
+index 000000000000..4184daeac5f9
+--- /dev/null
++++ b/ld/testsuite/ld-aarch64/local-got-relocs.s
+@@ -0,0 +1,15 @@
++# Begin with a function that uses a PC-relative GOT lookup of symbol x.
++	.text
++	.global	_start
++	.type	_start, %function
++_start:
++	adrp	x0, :got:x
++	ldr	x0, [x0, #:got_lo12:x]
++
++# Define symbol x as a local symbol.
++	.data
++	.align	2
++	.type	x, %object
++	.size	x, 4
++x:
++	.word	1
+-- 
+1.8.5.5
+

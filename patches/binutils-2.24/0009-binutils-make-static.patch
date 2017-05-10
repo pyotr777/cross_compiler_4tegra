@@ -1,0 +1,72 @@
+diff -rup binutils-2.24-orig/bfd/Makefile.in binutils-2.24/bfd/Makefile.in
+--- binutils-2.24-orig/bfd/Makefile.in	2016-05-03 14:33:23.000000000 -0700
++++ binutils-2.24/bfd/Makefile.in	2016-05-03 14:39:05.000000000 -0700
+@@ -145,7 +145,7 @@ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIB
+ CCLD = $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+-	$(LDFLAGS) -o $@
++	$(LDFLAGS) -o $@ -all-static
+ SOURCES = $(libbfd_a_SOURCES) $(libbfd_la_SOURCES) \
+ 	$(EXTRA_libbfd_la_SOURCES)
+ RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
+diff -rup binutils-2.24-orig/binutils/Makefile.in binutils-2.24/binutils/Makefile.in
+--- binutils-2.24-orig/binutils/Makefile.in	2016-05-03 14:33:29.000000000 -0700
++++ binutils-2.24/binutils/Makefile.in	2016-05-03 14:39:46.000000000 -0700
+@@ -237,7 +237,7 @@ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIB
+ CCLD = $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+-	$(LDFLAGS) -o $@
++	$(LDFLAGS) -o $@ -all-static
+ @MAINTAINER_MODE_FALSE@am__skiplex = test -f $@ ||
+ LEXCOMPILE = $(LEX) $(LFLAGS) $(AM_LFLAGS)
+ LTLEXCOMPILE = $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+diff -rup binutils-2.24-orig/gas/Makefile.in binutils-2.24/gas/Makefile.in
+--- binutils-2.24-orig/gas/Makefile.in	2016-05-03 14:33:32.000000000 -0700
++++ binutils-2.24/gas/Makefile.in	2016-05-03 14:40:29.000000000 -0700
+@@ -122,7 +122,7 @@ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIB
+ CCLD = $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+-	$(LDFLAGS) -o $@
++	$(LDFLAGS) -o $@ -all-static
+ @MAINTAINER_MODE_FALSE@am__skiplex = test -f $@ ||
+ LEXCOMPILE = $(LEX) $(LFLAGS) $(AM_LFLAGS)
+ LTLEXCOMPILE = $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+diff -rup binutils-2.24-orig/gprof/Makefile.in binutils-2.24/gprof/Makefile.in
+--- binutils-2.24-orig/gprof/Makefile.in	2016-05-03 14:33:31.000000000 -0700
++++ binutils-2.24/gprof/Makefile.in	2016-05-03 14:40:48.000000000 -0700
+@@ -110,7 +110,7 @@ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIB
+ CCLD = $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+-	$(LDFLAGS) -o $@
++	$(LDFLAGS) -o $@ -all-static
+ SOURCES = $(gprof_SOURCES)
+ INFO_DEPS = gprof.info
+ am__TEXINFO_TEX_DIR = $(srcdir)/../texinfo
+diff -rup binutils-2.24-orig/ld/Makefile.in binutils-2.24/ld/Makefile.in
+--- binutils-2.24-orig/ld/Makefile.in	2016-05-03 14:33:05.000000000 -0700
++++ binutils-2.24/ld/Makefile.in	2016-05-03 14:41:14.000000000 -0700
+@@ -124,7 +124,7 @@ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIB
+ CCLD = $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+-	$(LDFLAGS) -o $@
++	$(LDFLAGS) -o $@ -all-static
+ @MAINTAINER_MODE_FALSE@am__skiplex = test -f $@ ||
+ LEXCOMPILE = $(LEX) $(LFLAGS) $(AM_LFLAGS)
+ LTLEXCOMPILE = $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+diff -rup binutils-2.24-orig/opcodes/Makefile.in binutils-2.24/opcodes/Makefile.in
+--- binutils-2.24-orig/opcodes/Makefile.in	2016-05-03 14:33:18.000000000 -0700
++++ binutils-2.24/opcodes/Makefile.in	2016-05-03 14:41:39.000000000 -0700
+@@ -134,7 +134,7 @@ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIB
+ CCLD = $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+-	$(LDFLAGS) -o $@
++	$(LDFLAGS) -o $@ -all-static
+ SOURCES = $(libopcodes_a_SOURCES) $(libopcodes_la_SOURCES) \
+ 	$(EXTRA_libopcodes_la_SOURCES)
+ RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \

@@ -1,0 +1,29 @@
+This patch adds the file aarch64-builtins.c to the list of files that are
+parsed to generate tables to save and restore global variables for PCH.
+
+It also updates aarch64-builtins.c itself to build in that generated data so it
+can be referenced by the root table.
+
+This fixes:
+https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61997
+
+diff -Naur gcc-4.8.2-old/gcc/config/aarch64/aarch64-builtins.c gcc-4.8.2/gcc/config/aarch64/aarch64-builtins.c
+--- gcc-4.8.2-old/gcc/config/aarch64/aarch64-builtins.c	2014-08-02 02:40:36.396865188 +0000
++++ gcc-4.8.2/gcc/config/aarch64/aarch64-builtins.c	2014-08-02 02:42:36.512880713 +0000
+@@ -1292,3 +1292,5 @@
+ }
+ #undef AARCH64_CHECK_BUILTIN_MODE
+ #undef AARCH64_FIND_FRINT_VARIANT
++
++#include "gt-aarch64-builtins.h"
+diff -Naur gcc-4.8.2-old/gcc/config.gcc gcc-4.8.2/gcc/config.gcc
+--- gcc-4.8.2-old/gcc/config.gcc	2014-08-02 02:40:35.586869576 +0000
++++ gcc-4.8.2/gcc/config.gcc	2014-08-02 02:42:07.109707000 +0000
+@@ -314,6 +314,7 @@
+ 	extra_headers="arm_neon.h"
+ 	extra_objs="aarch64-builtins.o"
+ 	target_has_targetm_common=yes
++	target_gtfiles="\$(srcdir)/config/aarch64/aarch64-builtins.c"
+ 	;;
+ alpha*-*-*)
+ 	cpu_type=alpha

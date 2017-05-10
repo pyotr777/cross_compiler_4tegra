@@ -1,0 +1,279 @@
+From d495e7788eef008991ad2abffdbb0aee06751a36 Mon Sep 17 00:00:00 2001
+From: Robert Morell <rmorell@nvidia.com>
+Date: Thu, 11 Sep 2014 17:51:26 -0700
+Subject: [PATCH 1/3] ld: Implement localization of GOT symbols in aarch64
+
+If code generation occurs when a symbol is global, and then the symbol
+is localized (e.g., using objcopy), then ld will currently perform an
+incorrect static relocation for the local symbol.  This change
+implements a correct resolution of such relocations.  It operates
+similarly to how this is done for x86_64: at an early stage, these
+relocations are converted to PC-relative (non-GOT) relocations, and the
+instruction that performs the GOT lookup is changed to remove one
+dereference (since the symbol is now directly referenced, rather than
+indirectly through the GOT).
+---
+ bfd/elfnn-aarch64.c | 240 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 240 insertions(+)
+
+diff --git a/bfd/elfnn-aarch64.c b/bfd/elfnn-aarch64.c
+index 8f0e71699fdc..17469d8c464e 100644
+--- a/bfd/elfnn-aarch64.c
++++ b/bfd/elfnn-aarch64.c
+@@ -6284,6 +6284,243 @@ elfNN_aarch64_allocate_local_ifunc_dynrelocs (void **slot, void *inf)
+   return elfNN_aarch64_allocate_ifunc_dynrelocs (h, inf);
+ }
+ 
++/* Check if the given relocation type is a PC-relative GOT relocation eligible
++   for translation to a PC-relative non-GOT relocation */
++
++static bfd_boolean
++elfNN_aarch64_is_got_pcrel (unsigned int r_type)
++{
++  switch (r_type)
++    {
++      case AARCH64_R (ADR_GOT_PAGE):
++#if ARCH_SIZE == 64
++      case AARCH64_R (LD64_GOT_LO12_NC):
++#else
++      case AARCH64_R (LD32_GOT_LO12_NC):
++#endif
++	return TRUE;
++      default:
++	return FALSE;
++    }
++}
++
++/* Return the new relocation type to use for the given relocation type when
++   converting from PC-relative GOT reloc to PC-relative non-GOT reloc */
++
++static unsigned int
++elfNN_aarch64_localize_type (unsigned int r_type)
++{
++  switch (r_type)
++    {
++      case AARCH64_R (ADR_GOT_PAGE):
++	return AARCH64_R (ADR_PREL_PG_HI21);
++#if ARCH_SIZE == 64
++      case AARCH64_R (LD64_GOT_LO12_NC):
++	return AARCH64_R (ADD_ABS_LO12_NC);
++#else
++      case AARCH64_R (LD32_GOT_LO12_NC):
++	return AARCH64_R (ADD_ABS_LO12_NC);
++#endif
++      default:
++	BFD_ASSERT(0);
++	return 0;
++    }
++}
++
++/* Determine if the given 32-bit aarch64 instruction is an load from
++   a register plus immediate offset (this instruction needs to be converted to
++   an immediate add when removing a GOT lookup) */
++
++static bfd_boolean
++elfNN_aarch64_match_reg_imm_load(unsigned int val)
++{
++  return (val & 0xffc00000) ==
++#if ARCH_SIZE == 64
++    0xf9400000;
++#else
++    0xb9400000;
++#endif
++}
++
++/* Given a 32-bit aarch64 load (as above), convert to an add (with immediate
++   value).  Both instructions have 9-bit immediates values, and both
++   instructions have source and destination registers in the low 10 bits.  So
++   this function just saves the low 10 bits to preserve the source and dest
++   registers, but assigns the upper opcode bits as needed for an add. */
++
++static unsigned int
++elfNN_convert_reg_imm_to_add_imm(unsigned int val)
++{
++  return (val & 0x3ff) |
++#if ARCH_SIZE == 64
++    0x91000000;
++#else
++    0x11000000;
++#endif
++}
++
++/* Convert PC-relative GOT relocations, such as the below:
++     adrp  xN, :got:foo
++     ldr   xN, [xN, #:got_lo12:foo]
++   to PC-relative non-GOT relocations (for localized symbols):
++     adrp  xN, foo
++     add   xN, [xN, #:lo12:foo]
++
++   Note the translation from ldr to add, since not jumping through the GOT
++   means a level of indirection is removed.
++
++   This is heavily inspired by x86-64's elf_x86_64_convert_mov_to_lea(). */
++
++static bfd_boolean
++elfNN_aarch64_localize_adr_got (bfd *abfd, asection *sec,
++				struct bfd_link_info *link_info)
++{
++  Elf_Internal_Shdr *symtab_hdr;
++  Elf_Internal_Rela *internal_relocs;
++  Elf_Internal_Rela *irel, *irelend;
++  bfd_byte *contents;
++  struct elf_aarch64_link_hash_table *htab;
++  bfd_boolean changed_contents;
++  bfd_boolean changed_relocs;
++  bfd_signed_vma *local_got_refcounts;
++
++  /* Don't even try to convert non-ELF outputs.  */
++  if (!is_elf_hash_table (link_info->hash))
++    return FALSE;
++
++  /* Nothing to do if there are no codes, no relocations or no output.  */
++  if ((sec->flags & (SEC_CODE | SEC_RELOC)) != (SEC_CODE | SEC_RELOC)
++      || sec->reloc_count == 0
++      || discarded_section (sec))
++    return TRUE;
++
++  symtab_hdr = &elf_tdata (abfd)->symtab_hdr;
++
++  /* Load the relocations for this section.  */
++  internal_relocs = (_bfd_elf_link_read_relocs
++		     (abfd, sec, NULL, (Elf_Internal_Rela *) NULL,
++		      link_info->keep_memory));
++  if (internal_relocs == NULL)
++    return FALSE;
++
++  htab = elf_aarch64_hash_table (link_info);
++
++  changed_contents = FALSE;
++  changed_relocs = FALSE;
++  local_got_refcounts = elf_local_got_refcounts (abfd);
++
++  /* Get the section contents.  */
++  if (elf_section_data (sec)->this_hdr.contents != NULL)
++    contents = elf_section_data (sec)->this_hdr.contents;
++  else
++    {
++      if (!bfd_malloc_and_get_section (abfd, sec, &contents))
++	goto error_return;
++    }
++
++  irelend = internal_relocs + sec->reloc_count;
++  for (irel = internal_relocs; irel < irelend; irel++)
++    {
++      unsigned int r_type = ELFNN_R_TYPE (irel->r_info);
++      unsigned int r_symndx = ELFNN_R_SYM (irel->r_info);
++      unsigned int indx;
++      unsigned int new_r_type;
++      struct elf_link_hash_entry *h;
++
++      if (!elfNN_aarch64_is_got_pcrel (r_type))
++	continue;
++
++      new_r_type = elfNN_aarch64_localize_type (r_type);
++
++      /* Get the symbol referred to by the reloc.  */
++      if (r_symndx < symtab_hdr->sh_info)
++	{
++	  Elf_Internal_Sym *isym;
++
++	  isym = bfd_sym_from_r_symndx (&htab->sym_cache,
++					abfd, r_symndx);
++
++	  /* STT_GNU_IFUNC must keep R_AARCH64_ADR_GOT_PAGE relocation. */
++	  if (ELF_ST_TYPE (isym->st_info) != STT_GNU_IFUNC)
++	    {
++	      unsigned int insn = bfd_getl32(contents + irel->r_offset);
++	      if (elfNN_aarch64_match_reg_imm_load(insn))
++		bfd_putl32(elfNN_convert_reg_imm_to_add_imm(insn),
++			   contents + irel->r_offset);
++
++	      irel->r_info = ELFNN_R_INFO (r_symndx, new_r_type);
++	      if (local_got_refcounts != NULL
++		  && local_got_refcounts[r_symndx] > 0)
++		local_got_refcounts[r_symndx] -= 1;
++	      changed_contents = TRUE;
++	      changed_relocs = TRUE;
++	    }
++	  continue;
++	}
++
++      indx = r_symndx - symtab_hdr->sh_info;
++      h = elf_sym_hashes (abfd)[indx];
++      BFD_ASSERT (h != NULL);
++
++      while (h->root.type == bfd_link_hash_indirect
++	     || h->root.type == bfd_link_hash_warning)
++
++	h = (struct elf_link_hash_entry *) h->root.u.i.link;
++
++      /* STT_GNU_IFUNC must keep R_AARCH64_ADR_GOT_PAGE relocation.  We also
++	 avoid optimizing _DYNAMIC since ld.so may use its link-time
++	 address.  */
++      if (h->def_regular
++	  && h->type != STT_GNU_IFUNC
++	  && h != elf_hash_table (link_info)->hdynamic
++	  && SYMBOL_REFERENCES_LOCAL (link_info, h))
++	{
++	  unsigned int insn = bfd_getl32(contents + irel->r_offset);
++
++	  if (elfNN_aarch64_match_reg_imm_load(insn))
++	    bfd_putl32(elfNN_convert_reg_imm_to_add_imm(insn),
++		       contents + irel->r_offset);
++	  irel->r_info = ELFNN_R_INFO (r_symndx, new_r_type);
++	  if (h->got.refcount > 0)
++	    h->got.refcount -= 1;
++	  changed_contents = TRUE;
++	  changed_relocs = TRUE;
++	}
++    }
++
++
++  if (contents != NULL
++      && elf_section_data (sec)->this_hdr.contents != contents)
++    {
++      if (!changed_contents && !link_info->keep_memory)
++	free (contents);
++      else
++	{
++	  /* Cache the section contents for elf_link_input_bfd.  */
++	  elf_section_data (sec)->this_hdr.contents = contents;
++	}
++    }
++
++  if (elf_section_data (sec)->relocs != internal_relocs)
++    {
++      if (!changed_relocs)
++	free (internal_relocs);
++      else
++	elf_section_data (sec)->relocs = internal_relocs;
++    }
++
++  return TRUE;
++
++ error_return:
++  if (contents != NULL
++      && elf_section_data (sec)->this_hdr.contents != contents)
++    free (contents);
++  if (internal_relocs != NULL
++      && elf_section_data (sec)->relocs != internal_relocs)
++    free (internal_relocs);
++  return FALSE;
++}
++
+ /* This is the most important function of all . Innocuosly named
+    though !  */
+ static bfd_boolean
+@@ -6329,6 +6566,9 @@ elfNN_aarch64_size_dynamic_sections (bfd *output_bfd ATTRIBUTE_UNUSED,
+ 	{
+ 	  struct elf_dyn_relocs *p;
+ 
++	  if (!elfNN_aarch64_localize_adr_got(ibfd, s, info))
++	    return FALSE;
++
+ 	  for (p = (struct elf_dyn_relocs *)
+ 	       (elf_section_data (s)->local_dynrel); p != NULL; p = p->next)
+ 	    {
+-- 
+1.8.5.5
+
