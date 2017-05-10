@@ -157,7 +157,7 @@ build_gcc_support_lib() {
 
 build_final_glibc() {
 	# Finish glibc
-	edo mkdir build-glibc2
+	edo mkdir -p build-glibc2
 	edo pushd build-glibc2
 	$BUILD_TOP/glibc-$GLIBC_VER/configure \
 		--prefix=/usr \
@@ -169,6 +169,7 @@ build_final_glibc() {
 		--with-tls \
 		--disable-nscd \
 		--disable-stackguard-randomization \
+		--enable-add-ons \
 		CC=$TRIPLET-gcc
 	edo make -j${NCPUS}
 	edo make install install_root=$SYSROOT
@@ -196,37 +197,37 @@ build_final_gcc() {
 	edo popd
 }
 
-echo "Downloading sources"
-edo get_src > get_src.log 2>&1
-echo "Done"
+#echo "Downloading sources"
+#edo get_src > get_src.log 2>&1
+#echo "Done"
 
-echo "Applying patches"
-edo apply_patches > apply_patches.log 2>&1
-echo "Done"
+#echo "Applying patches"
+#edo apply_patches > apply_patches.log 2>&1
+#echo "Done"
 
 echo "Set environment"
 edo set_env
 echo "Done"
 
-echo "Build binutils"
-edo build_binutils > build_binutils.log 2>&1
-echo "Done"
+#echo "Build binutils"
+#edo build_binutils > build_binutils.log 2>&1
+#echo "Done"
 
-echo "Install Linux headers"
-edo install_linux_headers > install_linux_headers.log 2>&1
-echo "Done"
+#echo "Install Linux headers"
+#edo install_linux_headers > install_linux_headers.log 2>&1
+#echo "Done"
 
-echo "Build GCC stage1"
-edo build_gcc_stage1 > build_gcc_stage1.log 2>&1
-echo "Done"
+#echo "Build GCC stage1"
+#edo build_gcc_stage1 > build_gcc_stage1.log 2>&1
+#echo "Done"
 
-echo "Build Glibc stage1"
-edo build_glibc_stage1 > build_glibc_stage1.log 2>&1
-echo "Done"
+#echo "Build Glibc stage1"
+#edo build_glibc_stage1 > build_glibc_stage1.log 2>&1
+#echo "Done"
 
-echo "Build GCC support lib"
-edo build_gcc_support_lib > build_gcc_support_lib.log 2>&1
-echo "Done"
+#echo "Build GCC support lib"
+#edo build_gcc_support_lib > build_gcc_support_lib.log 2>&1
+#echo "Done"
 
 echo "Build final Glibc"
 edo build_final_glibc > build_final_glibc.log 2>&1
