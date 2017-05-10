@@ -1,1 +1,1 @@
-rm -rf appl* bin* build* config.* gcc* get* glibc* gmp* inst* linux* mp*
+rm -rf appl* bin* build* config.* gcc* get* glibc* gmp* linux* mp*
